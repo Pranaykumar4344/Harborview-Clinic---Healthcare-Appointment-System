@@ -3,11 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Harborview Clinic — Book an appointment</title>
+<title>Harborview Clinic — Healthcare Appointment System</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,650&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 :root{
   --ivory:#F7F4ED; --ink:#0E211F; --ink-soft:#5B6D69; --teal:#0F6B62; --teal-deep:#0A4A44;
@@ -143,6 +142,22 @@ footer .wrap{border-top:1px solid rgba(247,244,237,.1);padding:30px 28px;display
 footer .brand{color:#F7F4ED}
 @media (max-width:760px){.hero{grid-template-columns:1fr}.hero .schedule-art{order:-1}.trustbar .wrap{flex-wrap:wrap}.trustitem{flex:1 1 40%;margin-bottom:10px}.trustitem+.trustitem::before{display:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.hide{display:none!important}
+.tabs{display:flex;gap:8px;margin-bottom:14px}
+.tab{flex:1;padding:10px;border-radius:9px;border:1px solid var(--line);color:var(--ink-soft);background:var(--card);font-size:.88rem}
+.tab.on{background:var(--ink);color:var(--ivory);border-color:var(--ink)}
+.hint{font-size:.8rem;color:var(--ink-soft);border:1px dashed var(--line);border-radius:9px;padding:10px 12px;margin-top:12px}
+.status.completed{background:var(--gold);color:#1C1408}.status.expired{background:var(--coral);color:#fff}
+.acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn.sm{padding:7px 13px;font-size:.82rem}.btn-sand{background:var(--sand);color:var(--ink)}
+.userchip{font-size:.86rem;color:var(--ink-soft)}
+#adminView{padding-top:48px;padding-bottom:56px}#adminView section{padding:28px 0}
+.astats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+.astat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+.astat b{font-family:'Fraunces',serif;font-size:1.7rem;display:block}.astat span{color:var(--ink-soft);font-size:.82rem}
+.addform{display:grid;grid-template-columns:2fr 2fr 1fr 1fr 1fr auto;gap:10px;align-items:end;margin-bottom:16px}
+@media (max-width:760px){.addform{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
@@ -151,13 +166,14 @@ footer .brand{color:#F7F4ED}
   <nav class="wrap">
     <div class="brand"><span class="mark"></span>Harborview Clinic</div>
     <div class="navlinks">
-      <a href="#doctors">Doctors</a>
-      <a href="#appointments">My appointments</a>
-      <button class="btn btn-solid-dark" onclick="document.getElementById('doctors').scrollIntoView({behavior:'smooth'})">Book now</button>
+      <a href="#doctors" id="navDoctors">Doctors</a>
+      <a href="#appointments" id="navAppts" class="hide">My appointments</a>
+      <span class="userchip hide" id="userChip"></span>
+      <button class="btn btn-solid-dark" id="navAuth" onclick="authOrLogout()">Log in</button>
     </div>
-    <span class="demo-flag" id="demoFlag">Demo data</span>
   </nav>
 </header>
+<div id="publicView">
 
 <div class="herowrap">
   <div class="wrap hero">
@@ -167,7 +183,7 @@ footer .brand{color:#F7F4ED}
       <p>See real-time openings across our care team, choose a slot that fits your day, and manage every visit from one place.</p>
       <div class="cta">
         <button class="btn btn-primary" onclick="document.getElementById('doctors').scrollIntoView({behavior:'smooth'})">Find a doctor</button>
-        <button class="btn btn-ghost" onclick="document.getElementById('appointments').scrollIntoView({behavior:'smooth'})">View my appointments</button>
+        <button class="btn btn-ghost" id="heroSecond" onclick="heroAction()">Create patient account</button>
       </div>
     </div>
     <div class="schedule-art rise" style="animation-delay:.15s">
@@ -195,35 +211,69 @@ footer .brand{color:#F7F4ED}
     <div>
       <div class="eyebrow">Care team</div>
       <h2>Choose who you'd like to see</h2>
-      <p>Availability updates live as other patients book.</p>
+      <p>Booked times are greyed out. Log in as a patient to book.</p>
     </div>
     <div class="filters" id="filters"></div>
   </div>
   <div class="doctor-grid" id="doctorGrid"></div>
 </section>
 
-<section id="appointments" class="wrap">
+<section id="appointments" class="wrap hide">
   <div class="section-head">
     <div>
       <div class="eyebrow">Manage your visits</div>
       <h2>My appointments</h2>
-      <p>Look up visits booked with your email.</p>
+      <p>Reschedule or cancel any upcoming visit.</p>
     </div>
-  </div>
-  <div class="lookup">
-    <input id="lookupEmail" type="email" placeholder="you@email.com">
-    <button class="btn btn-solid-dark" onclick="lookupAppointments()">Find</button>
   </div>
   <div class="applist" id="appList"></div>
 </section>
+</div>
+
+<main id="adminView" class="wrap hide">
+  <div class="section-head"><div><div class="eyebrow">Admin module</div><h2>Clinic dashboard</h2><p>Manage doctors and every patient appointment.</p></div></div>
+  <div class="astats" id="aStats"></div>
+  <section>
+    <div class="section-head"><div><h2>Manage doctors</h2><p>Add or remove doctors from the booking list.</p></div></div>
+    <div class="addform">
+      <div class="field"><label for="dName">Name</label><input id="dName" placeholder="Dr. Jane Doe"></div>
+      <div class="field"><label for="dSpec">Specialty</label><input id="dSpec" placeholder="Neurology"></div>
+      <div class="field"><label for="dYears">Years</label><input id="dYears" type="number" min="0" value="5"></div>
+      <div class="field"><label for="dFrom">From (hour)</label><input id="dFrom" type="number" min="0" max="23" value="9"></div>
+      <div class="field"><label for="dTo">To (hour)</label><input id="dTo" type="number" min="1" max="24" value="17"></div>
+      <button class="btn btn-solid-dark" onclick="addDoctor()">Add</button>
+    </div>
+    <div class="applist" id="adminDocs"></div>
+  </section>
+  <section>
+    <div class="section-head"><div><h2>All appointments</h2><p>After a visit, mark it completed if the patient came, or expired if they did not.</p></div></div>
+    <div class="applist" id="adminAppts"></div>
+  </section>
+</main>
 
 <footer>
   <div class="wrap">
     <span class="brand">Harborview Clinic</span>
-    <span id="connState">Connecting…</span>
+    <span>Data is stored in this browser (Local Storage)</span>
     <span>For demonstration purposes only.</span>
   </div>
 </footer>
+
+<div class="overlay" id="authOverlay">
+  <div class="sheet">
+    <button class="closebtn" onclick="closeAuth()">✕</button>
+    <h3 id="authTitle">Patient portal</h3>
+    <div class="sub" id="authSub">Log in or create an account to book visits.</div>
+    <div class="tabs" id="portalTabs"><button class="tab on" id="pUser" onclick="setPortal('user')">Patient</button><button class="tab" id="pAdmin" onclick="setPortal('admin')">Admin</button></div>
+    <div class="tabs" id="authTabs"><button class="tab on" id="tabLogin" onclick="showTab('login')">Log in</button><button class="tab" id="tabSignup" onclick="showTab('signup')">Sign up</button></div>
+    <div class="msg" id="authMsg"></div>
+    <div class="field hide" id="fName"><label for="aName">Full name</label><input id="aName" autocomplete="name"></div>
+    <div class="field"><label for="aEmail">Email</label><input id="aEmail" type="email" autocomplete="email"></div>
+    <div class="field"><label for="aPass">Password</label><input id="aPass" type="password" autocomplete="current-password"></div>
+    <button class="btn btn-solid-dark" style="width:100%" id="authBtn" onclick="submitAuth()">Log in</button>
+    <div class="hint hide" id="adminHint">Admin login: <b>admin@harborview.com</b> / <b>admin123</b></div>
+  </div>
+</div>
 
 <div class="overlay" id="overlay">
   <div class="sheet">
@@ -233,8 +283,8 @@ footer .brand{color:#F7F4ED}
     <div class="msg" id="sheetMsg"></div>
     <div class="daytabs" id="dayTabs"></div>
     <div class="slotgrid" id="slotGrid"></div>
-    <div class="field"><label for="pName">Full name</label><input id="pName"></div>
-    <div class="field"><label for="pEmail">Email</label><input id="pEmail" type="email"></div>
+    <div class="field"><label for="pName">Full name</label><input id="pName" readonly></div>
+    <div class="field"><label for="pEmail">Email</label><input id="pEmail" type="email" readonly></div>
     <div class="field"><label for="pPhone">Phone</label><input id="pPhone" type="tel"></div>
     <div class="sheet-actions">
       <button class="btn btn-ghost" style="border:1px solid var(--line);color:var(--ink)" onclick="closeSheet()">Cancel</button>
@@ -244,188 +294,172 @@ footer .brand{color:#F7F4ED}
 </div>
 
 <script>
-const SUPABASE_URL = "https://jlqsmqfzmgcgheftglya.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_L89aIgvgJW-PtEPb4U7PUA_Y9PGVUtK";
+const $=id=>document.getElementById(id);
+const get=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}};
+const put=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dayKey=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const next7Days=()=>Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()+i);return d});
+const fmtDate=d=>d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
 
-let supa = null, LIVE = false;
-try{
-  if(SUPABASE_URL.startsWith("http") && SUPABASE_ANON_KEY.length > 20){
-    supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    LIVE = true;
+/* ---- Local Storage database ----
+   hvc_users: accounts | hvc_session: logged-in user | hvc_doctors: doctor list | hvc_appts: appointments */
+function seed(){
+  if(!get('hvc_users',null)) put('hvc_users',[{id:'u0',name:'Clinic Admin',email:'admin@harborview.com',password:'admin123',role:'admin'}]);
+  if(!get('hvc_doctors',null)) put('hvc_doctors',[
+    {id:'d1',name:'Dr. Maria Alvarez',specialty:'Family Medicine',years:11,hours:[9,17]},
+    {id:'d2',name:'Dr. Wei Chen',specialty:'Cardiology',years:15,hours:[10,16]},
+    {id:'d3',name:'Dr. Ada Okafor',specialty:'Pediatrics',years:8,hours:[9,15]},
+    {id:'d4',name:'Dr. Sam Patel',specialty:'Dermatology',years:6,hours:[11,18]},
+    {id:'d5',name:'Dr. Lena Kowalski',specialty:'Family Medicine',years:19,hours:[8,14]}]);
+  if(!get('hvc_appts',null)) put('hvc_appts',[]);
+}
+let portal='user',session=null,filter='All',activeDoctor=null,activeDay=0,selectedSlot=null,editId=null,pendingBook=null;
+
+/* ---- Auth: patient signup/login, separate admin login ---- */
+function openAuth(tab,patientOnly){setPortal('user');if(tab==='signup')showTab('signup');$('portalTabs').classList.toggle('hide',!!patientOnly);$('authOverlay').classList.add('open');}
+function closeAuth(){$('authOverlay').classList.remove('open');pendingBook=null;}
+function authMsg(t,ok){const m=$('authMsg');m.textContent=t;m.className='msg '+(ok?'ok':'err')+' show';}
+function showTab(t){
+  const s=t==='signup';
+  $('tabLogin').classList.toggle('on',!s);$('tabSignup').classList.toggle('on',s);
+  $('fName').classList.toggle('hide',!s);$('adminHint').classList.toggle('hide',portal!=='admin');
+  $('authBtn').textContent=s?'Create account':'Log in';$('authMsg').className='msg';
+}
+function setPortal(p){
+  portal=p;
+  $('pUser').classList.toggle('on',p==='user');$('pAdmin').classList.toggle('on',p==='admin');
+  $('authTabs').classList.toggle('hide',p==='admin');
+  $('authTitle').textContent=p==='admin'?'Admin portal':'Patient portal';
+  $('authSub').textContent=p==='admin'?'For clinic staff only.':'Log in or create an account to book visits.';
+  $('aName').value='';$('aPass').value='';showTab('login');
+}
+function submitAuth(){
+  const signup=!$('fName').classList.contains('hide');
+  const email=$('aEmail').value.trim().toLowerCase(),pass=$('aPass').value,name=$('aName').value.trim();
+  const users=get('hvc_users',[]);
+  if(!email||!pass) return authMsg('Enter your email and password.');
+  if(signup){
+    if(!name) return authMsg('Enter your full name.');
+    if(pass.length<6) return authMsg('Password must be at least 6 characters.');
+    if(users.some(u=>u.email===email)) return authMsg('That email is already registered. Log in instead.');
+    users.push({id:'u'+Date.now(),name,email,password:pass,role:'user'});put('hvc_users',users);
+    showTab('login');$('aPass').value='';return authMsg('Account created. Log in to continue.',true);
   }
-}catch(e){ LIVE = false; }
+  const u=users.find(x=>x.email===email&&x.password===pass);
+  if(!u) return authMsg('Incorrect email or password.');
+  if(portal==='admin'&&u.role!=='admin') return authMsg('This is not an admin account. Use the Patient tab.');
+  if(portal==='user'&&u.role==='admin') return authMsg('Admin accounts log in from the Admin tab.');
+  put('hvc_session',{id:u.id,name:u.name,email:u.email,role:u.role});
+  const b=pendingBook;pendingBook=null;closeAuth();start();
+  if(b) openBooking(b);
+}
+function authOrLogout(){if(session){try{localStorage.removeItem('hvc_session')}catch(e){}start();window.scrollTo(0,0);}else openAuth();}
+function heroAction(){session?$('appointments').scrollIntoView({behavior:'smooth'}):openAuth('signup',true);}
 
-const DEMO_DOCTORS = [
-  {id:"d1", name:"Dr. Maria Alvarez", specialty:"Family Medicine", years:11, hours:[9,17]},
-  {id:"d2", name:"Dr. Wei Chen", specialty:"Cardiology", years:15, hours:[10,16]},
-  {id:"d3", name:"Dr. Ada Okafor", specialty:"Pediatrics", years:8, hours:[9,15]},
-  {id:"d4", name:"Dr. Sam Patel", specialty:"Dermatology", years:6, hours:[11,18]},
-  {id:"d5", name:"Dr. Lena Kowalski", specialty:"Family Medicine", years:19, hours:[8,14]},
-];
-let demoAppointments = JSON.parse(localStorage.getItem("hv_demo_appts") || "[]");
-
-let doctors = [];
-let appointments = [];
-let activeDoctor = null, activeDay = 0, selectedSlot = null;
-
-function fmtDate(d){ return d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}); }
-function dayKey(d){ return d.toISOString().slice(0,10); }
-function next7Days(){ const out=[]; for(let i=0;i<7;i++){ const d=new Date(); d.setDate(d.getDate()+i); out.push(d);} return out; }
-
-async function loadDoctors(){
-  if(LIVE){
-    const {data, error} = await supa.from('doctors').select('*').order('name');
-    if(!error && data && data.length){ doctors = data; return; }
-  }
-  doctors = DEMO_DOCTORS;
-  document.getElementById('demoFlag').style.display = LIVE ? 'none' : 'inline-block';
+function start(){
+  session=get('hvc_session',null);
+  const admin=session&&session.role==='admin',patient=session&&session.role==='user';
+  $('publicView').classList.toggle('hide',!!admin);
+  $('adminView').classList.toggle('hide',!admin);
+  $('appointments').classList.toggle('hide',!patient);
+  $('navAppts').classList.toggle('hide',!patient);
+  $('navDoctors').classList.toggle('hide',!!admin);
+  $('userChip').classList.toggle('hide',!session);
+  $('userChip').textContent=session?(admin?'Admin · ':'')+session.name:'';
+  $('navAuth').textContent=session?'Log out':'Log in';
+  $('heroSecond').textContent=patient?'View my appointments':'Create patient account';
+  if(admin) renderAdmin(); else {renderFilters();renderDoctors(filter);if(patient)renderMine();}
 }
 
+/* ---- Patient module ---- */
 function renderFilters(){
-  const specs = ["All", ...new Set(doctors.map(d=>d.specialty))];
-  const el = document.getElementById('filters');
-  el.innerHTML = specs.map((s,i)=>`<button class="chip ${i===0?'active':''}" data-spec="${s}">${s}</button>`).join('');
-  el.querySelectorAll('.chip').forEach(btn=>{
-    btn.onclick = () => {
-      el.querySelectorAll('.chip').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      renderDoctors(btn.dataset.spec);
-    };
-  });
+  const specs=['All',...new Set(get('hvc_doctors',[]).map(d=>d.specialty))];
+  const el=$('filters');
+  el.innerHTML=specs.map(sp=>`<button class="chip ${sp===filter?'active':''}" data-spec="${esc(sp)}">${esc(sp)}</button>`).join('');
+  el.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{filter=b.dataset.spec;renderFilters();renderDoctors(filter);});
 }
-
-function renderDoctors(filter){
-  const grid = document.getElementById('doctorGrid');
-  const list = (!filter || filter==='All') ? doctors : doctors.filter(d=>d.specialty===filter);
-  grid.innerHTML = list.map(d=>`
-    <div class="dcard">
-      <h3>${d.name}</h3>
-      <div class="spec">${d.specialty}</div>
+function renderDoctors(f){
+  const list=get('hvc_doctors',[]).filter(d=>!f||f==='All'||d.specialty===f);
+  $('doctorGrid').innerHTML=list.length?list.map(d=>`
+    <div class="dcard"><h3>${esc(d.name)}</h3><div class="spec">${esc(d.specialty)}</div>
       <div class="meta">${d.years} yrs experience · ${d.hours[0]}:00–${d.hours[1]}:00 daily</div>
-      <button onclick="openBooking('${d.id}')">Book appointment</button>
-    </div>`).join('');
+      <button onclick="openBooking('${d.id}')">Book appointment</button></div>`).join(''):'<div class="empty">No doctors available.</div>';
 }
-
-function slotsForDoctor(d){
-  const out=[];
-  for(let h=d.hours[0]; h<d.hours[1]; h++){ out.push(h+":00"); out.push(h+":30"); }
-  return out;
-}
-
-async function openBooking(id){
-  activeDoctor = doctors.find(d=>d.id===id);
-  activeDay = 0; selectedSlot = null;
-  document.getElementById('sheetDoctorName').textContent = "Book with " + activeDoctor.name;
-  document.getElementById('sheetSpecialty').textContent = activeDoctor.specialty;
-  document.getElementById('sheetMsg').className = 'msg';
-  const days = next7Days();
-  document.getElementById('dayTabs').innerHTML = days.map((d,i)=>
-    `<button class="daytab ${i===0?'active':''}" data-i="${i}">${fmtDate(d)}</button>`).join('');
+function openBooking(id,edit){
+  if(!session||session.role!=='user'){pendingBook=id;openAuth('login',true);authMsg('Log in or sign up as a patient to book.',true);return;}
+  activeDoctor=get('hvc_doctors',[]).find(d=>d.id===id);editId=edit||null;activeDay=0;selectedSlot=null;
+  $('sheetDoctorName').textContent=(editId?'Reschedule with ':'Book with ')+activeDoctor.name;
+  $('sheetSpecialty').textContent=activeDoctor.specialty;
+  $('pName').value=session.name;$('pEmail').value=session.email;
+  $('sheetMsg').className='msg';
+  $('dayTabs').innerHTML=next7Days().map((d,i)=>`<button class="daytab ${i===0?'active':''}" data-i="${i}">${fmtDate(d)}</button>`).join('');
   document.querySelectorAll('.daytab').forEach(t=>t.onclick=()=>{
     document.querySelectorAll('.daytab').forEach(x=>x.classList.remove('active'));
-    t.classList.add('active'); activeDay = +t.dataset.i; selectedSlot=null; renderSlots();
-  });
-  await loadAppointmentsFor(activeDoctor.id);
-  renderSlots();
-  document.getElementById('overlay').classList.add('open');
+    t.classList.add('active');activeDay=+t.dataset.i;selectedSlot=null;renderSlots();});
+  renderSlots();$('overlay').classList.add('open');
 }
-function closeSheet(){ document.getElementById('overlay').classList.remove('open'); }
-
-async function loadAppointmentsFor(doctorId){
-  if(LIVE){
-    const {data} = await supa.from('appointments').select('*').eq('doctor_id', doctorId).eq('status','confirmed');
-    appointments = data || [];
-  }else{
-    appointments = demoAppointments.filter(a=>a.doctor_id===doctorId && a.status==='confirmed');
-  }
-}
-
+function closeSheet(){$('overlay').classList.remove('open');}
 function renderSlots(){
-  const day = next7Days()[activeDay];
-  const key = dayKey(day);
-  const taken = new Set(appointments.filter(a=>a.slot_date===key).map(a=>a.slot_time));
-  const grid = document.getElementById('slotGrid');
-  grid.innerHTML = slotsForDoctor(activeDoctor).map(s=>{
-    const isTaken = taken.has(s);
-    return `<button class="slot ${isTaken?'taken':''}" data-slot="${s}">${s}</button>`;
-  }).join('');
-  grid.querySelectorAll('.slot:not(.taken)').forEach(b=>b.onclick=()=>{
-    grid.querySelectorAll('.slot').forEach(x=>x.classList.remove('selected'));
-    b.classList.add('selected'); selectedSlot = b.dataset.slot;
-  });
+  const day=next7Days()[activeDay],key=dayKey(day),now=new Date();
+  const taken=new Set(get('hvc_appts',[]).filter(a=>a.doctor_id===activeDoctor.id&&a.slot_date===key&&a.status==='confirmed'&&a.id!==editId).map(a=>a.slot_time));
+  let h='';
+  for(let t=activeDoctor.hours[0];t<activeDoctor.hours[1];t++)for(const m of ['00','30']){
+    const s=t+':'+m,past=new Date(day.getFullYear(),day.getMonth(),day.getDate(),t,+m)<=now;
+    h+=`<button class="slot ${taken.has(s)||past?'taken':''} ${selectedSlot===s?'selected':''}" data-slot="${s}">${s}</button>`;
+  }
+  const grid=$('slotGrid');grid.innerHTML=h;
+  grid.querySelectorAll('.slot:not(.taken)').forEach(b=>b.onclick=()=>{selectedSlot=b.dataset.slot;renderSlots();});
+}
+function confirmBooking(){
+  const msg=$('sheetMsg');
+  if(!selectedSlot){msg.textContent='Pick an open time slot.';msg.className='msg err show';return;}
+  const all=get('hvc_appts',[]),day=dayKey(next7Days()[activeDay]);
+  if(editId){const a=all.find(x=>x.id===editId);a.slot_date=day;a.slot_time=selectedSlot;}
+  else all.push({id:'a'+Date.now(),user_id:session.id,patient_name:session.name,patient_email:session.email,patient_phone:$('pPhone').value.trim(),
+    doctor_id:activeDoctor.id,doctor_name:activeDoctor.name,slot_date:day,slot_time:selectedSlot,status:'confirmed',created_at:new Date().toISOString()});
+  put('hvc_appts',all);
+  msg.textContent=(editId?'Appointment rescheduled to ':'Appointment confirmed for ')+day+' at '+selectedSlot+'.';msg.className='msg ok show';
+  renderSlots();renderMine();setTimeout(closeSheet,1200);
+}
+function renderMine(){
+  const rows=get('hvc_appts',[]).filter(a=>a.user_id===session.id).sort((a,b)=>(a.slot_date+a.slot_time).localeCompare(b.slot_date+b.slot_time));
+  $('appList').innerHTML=rows.length?rows.map(a=>`
+    <div class="approw"><div class="info"><b>${esc(a.doctor_name)}</b><span>${a.slot_date} · ${a.slot_time}</span></div>
+      <div class="acts"><span class="status ${a.status}">${a.status}</span>
+      ${a.status==='confirmed'?`<button class="linkbtn" style="color:var(--teal)" onclick="openBooking('${a.doctor_id}','${a.id}')">Reschedule</button><button class="linkbtn" onclick="setStatus('${a.id}','cancelled')">Cancel</button>`:''}</div></div>`).join('')
+    :'<div class="empty">No appointments yet. Choose a doctor above to book one.</div>';
+}
+function setStatus(id,st){
+  const all=get('hvc_appts',[]),a=all.find(x=>x.id===id);if(a)a.status=st;put('hvc_appts',all);
+  session.role==='admin'?renderAdmin():renderMine();
 }
 
-async function confirmBooking(){
-  const name = document.getElementById('pName').value.trim();
-  const email = document.getElementById('pEmail').value.trim();
-  const phone = document.getElementById('pPhone').value.trim();
-  const msg = document.getElementById('sheetMsg');
-  if(!selectedSlot){ msg.textContent = "Pick an open time slot."; msg.className='msg err show'; return; }
-  if(!name || !email){ msg.textContent = "Name and email are required."; msg.className='msg err show'; return; }
-  const day = dayKey(next7Days()[activeDay]);
-  const row = {doctor_id:activeDoctor.id, doctor_name:activeDoctor.name, patient_name:name, patient_email:email,
-               patient_phone:phone, slot_date:day, slot_time:selectedSlot, status:'confirmed', created_at:new Date().toISOString()};
-  if(LIVE){
-    const {error} = await supa.from('appointments').insert(row);
-    if(error){ msg.textContent = "That slot was just taken — pick another."; msg.className='msg err show'; await loadAppointmentsFor(activeDoctor.id); renderSlots(); return; }
-  }else{
-    row.id = 'a'+Date.now();
-    demoAppointments.push(row);
-    localStorage.setItem('hv_demo_appts', JSON.stringify(demoAppointments));
-  }
-  msg.textContent = "Appointment confirmed for " + day + " at " + selectedSlot + ".";
-  msg.className = 'msg ok show';
-  await loadAppointmentsFor(activeDoctor.id);
-  renderSlots();
-  setTimeout(closeSheet, 1400);
+/* ---- Admin module (statuses are set manually) ---- */
+function renderAdmin(){
+  const docs=get('hvc_doctors',[]),ap=get('hvc_appts',[]),pts=get('hvc_users',[]).filter(u=>u.role==='user');
+  const n=st=>ap.filter(a=>a.status===st).length;
+  $('aStats').innerHTML=[[docs.length,'Doctors'],[pts.length,'Registered patients'],[n('confirmed'),'Upcoming'],[n('completed'),'Completed'],[n('expired'),'Expired'],[n('cancelled'),'Cancelled']].map(x=>`<div class="astat"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('');
+  $('adminDocs').innerHTML=docs.length?docs.map(d=>`<div class="approw"><div class="info"><b>${esc(d.name)}</b><span>${esc(d.specialty)} · ${d.years} yrs · ${d.hours[0]}:00–${d.hours[1]}:00</span></div><button class="linkbtn" onclick="removeDoctor('${d.id}')">Remove</button></div>`).join(''):'<div class="empty">No doctors yet. Add one above.</div>';
+  $('adminAppts').innerHTML=ap.length?ap.map(a=>`
+    <div class="approw"><div class="info"><b>${esc(a.patient_name)}</b> with ${esc(a.doctor_name)}<span>${a.slot_date} · ${a.slot_time} · ${esc(a.patient_email)}</span></div>
+      <div class="acts"><span class="status ${a.status}">${a.status}</span>
+      ${a.status==='confirmed'?`<button class="btn btn-solid-dark sm" onclick="setStatus('${a.id}','completed')">Mark completed</button><button class="btn btn-sand sm" onclick="setStatus('${a.id}','expired')">Mark expired</button><button class="linkbtn" onclick="setStatus('${a.id}','cancelled')">Cancel</button>`:''}
+      ${a.status==='expired'?`<button class="btn btn-solid-dark sm" onclick="setStatus('${a.id}','completed')">Mark completed</button>`:''}
+      ${a.status==='cancelled'||a.status==='expired'?`<button class="btn btn-sand sm" onclick="setStatus('${a.id}','confirmed')">Reopen</button>`:''}</div></div>`).join(''):'<div class="empty">No appointments booked yet.</div>';
+}
+function addDoctor(){
+  const name=$('dName').value.trim(),spec=$('dSpec').value.trim(),years=+$('dYears').value||0,from=+$('dFrom').value,to=+$('dTo').value;
+  if(!name||!spec||!(to>from)) return alert('Enter a name, a specialty, and a valid time range.');
+  const l=get('hvc_doctors',[]);l.push({id:'d'+Date.now(),name,specialty:spec,years,hours:[from,to]});put('hvc_doctors',l);
+  $('dName').value='';$('dSpec').value='';renderAdmin();
+}
+function removeDoctor(id){
+  if(!confirm('Remove this doctor? Existing appointments stay on record.')) return;
+  put('hvc_doctors',get('hvc_doctors',[]).filter(d=>d.id!==id));renderAdmin();
 }
 
-async function lookupAppointments(){
-  const email = document.getElementById('lookupEmail').value.trim().toLowerCase();
-  const list = document.getElementById('appList');
-  if(!email){ list.innerHTML = '<div class="empty">Enter the email you booked with.</div>'; return; }
-  let rows = [];
-  if(LIVE){
-    const {data} = await supa.from('appointments').select('*').ilike('patient_email', email).order('slot_date');
-    rows = data || [];
-  }else{
-    rows = demoAppointments.filter(a=>a.patient_email.toLowerCase()===email);
-  }
-  if(!rows.length){ list.innerHTML = '<div class="empty">No appointments found for that email yet.</div>'; return; }
-  list.innerHTML = rows.map(a=>`
-    <div class="approw" data-id="${a.id}">
-      <div class="info">
-        <b>${a.doctor_name}</b>
-        <span>${a.slot_date} · ${a.slot_time}</span>
-      </div>
-      <span class="status ${a.status}">${a.status}</span>
-      ${a.status==='confirmed' ? `<button class="linkbtn" onclick="cancelAppointment('${a.id}','${email}')">Cancel</button>` : ''}
-    </div>`).join('');
-}
-
-async function cancelAppointment(id, email){
-  if(LIVE){
-    await supa.from('appointments').update({status:'cancelled'}).eq('id', id);
-  }else{
-    demoAppointments = demoAppointments.map(a=> a.id===id ? {...a,status:'cancelled'} : a);
-    localStorage.setItem('hv_demo_appts', JSON.stringify(demoAppointments));
-  }
-  lookupAppointments();
-}
-
-(async function init(){
-  await loadDoctors();
-  renderFilters();
-  renderDoctors('All');
-  document.getElementById('connState').textContent = LIVE ? 'Live · connected to Supabase' : 'Running in demo mode (no Supabase configured)';
-  if(LIVE){
-    try{
-      supa.channel('appointments-live').on('postgres_changes', {event:'*', schema:'public', table:'appointments'}, () => {
-        if(activeDoctor) loadAppointmentsFor(activeDoctor.id).then(renderSlots);
-      }).subscribe();
-    }catch(e){}
-  }
-})();
+seed();setPortal('user');start();
 </script>
 </body>
 </html>
